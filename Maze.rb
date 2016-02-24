@@ -40,6 +40,12 @@ class Maze
     end
     #this node is for tracing the path
     @tnode = nil
+    #the set tracing cells we have been to
+    @traceSet = Set.new
+    #the array storing cells we needs to explore
+    @traceArray = Array.new
+    #the ending point
+    @final = nil
   end
 
   #take in the string consisting of 1 and 0 and put them into the hash
@@ -71,22 +77,21 @@ class Maze
   def solve(begX, begY, endX, endY)
     #first create two points object as starting point and destination
     start = Point.new(begX,begY)
-    final = Point.new(endX,endY)
-
-    if start.isEqual(final)
+    @final = Point.new(endX,endY)
+    #first initialize these objects in case that there are
+    #data left after last iteration of solve
+    @tnode = nil
+    @traceSet = Set.new
+    @traceArray = Array.new
+    if start.isEqual(@final)
       @tnode = start
       true
     else
-      #keep track of the cells we have been to
-      traceSet = Set.new
-      #keep track of the cells which may lead to a possible solution
-      traceArray = Array.new
-      #put the starting cell into the set and array
-      traceSet.add(start.to_S)
-      traceArray.push(start)
+      @traceSet.add(start.to_S)
+      @traceArray.push(start)
 
       #start sloving
-      newp = traceArray.shift
+      newp = @traceArray.shift
       #we don't stop until all the possible pathes are tested
 
       while newp != nil && @tnode == nil do
@@ -94,19 +99,19 @@ class Maze
         #the while loop
 
         #test if we can move upward
-        move(2*newp.x+1,2*newp.y,newp.x,newp.y-1,newp,traceArray,traceSet,final)
+        move(2*newp.x+1,2*newp.y,newp.x,newp.y-1,newp)
 
         #test if we can move downward
-        move(2*newp.x+1,2*newp.y+2,newp.x,newp.y+1,newp,traceArray,traceSet,final)
+        move(2*newp.x+1,2*newp.y+2,newp.x,newp.y+1,newp)
 
         #test if we can move leftward
-        move(2*newp.x,2*newp.y+1,newp.x-1,newp.y,newp,traceArray,traceSet,final)
+        move(2*newp.x,2*newp.y+1,newp.x-1,newp.y,newp)
 
         #test if we can move rightward
-        move(2*newp.x+2,2*newp.y+1,newp.x+1,newp.y,newp,traceArray,traceSet,final)
+        move(2*newp.x+2,2*newp.y+1,newp.x+1,newp.y,newp)
 
         #move to the next cell
-        newp = traceArray.shift
+        newp = @traceArray.shift
       end
 
       #if the current cell is nil, it means we have no solution for this maze puzzle
@@ -118,17 +123,18 @@ class Maze
     end
   end
 
+
   #if we can move to the next cell in certain direction
   #and we have never been to the next cell, we set the next cell's previous as the
   #current cell and put the next cell in the array and set
-  def move(currX,currY,nextX,nextY,prev,queue,set,final)
+  def move(currX,currY,nextX,nextY,prev)
     if @mat[currY][currX] == "0"
       point = Point.new(nextX,nextY)
-      if !(set.include?(point.to_S))
+      if !(@traceSet.include?(point.to_S))
         point.setPrev(prev)
-        queue.push(point)
-        set.add(point.to_S)
-        if point.isEqual(final)
+        @traceArray.push(point)
+        @traceSet.add(point.to_S)
+        if point.isEqual(@final)
           @tnode = point
         end
       end
@@ -153,12 +159,12 @@ class Maze
     else
       puts "Error! No solution exists."
     end
+
   end
 
   #first empty the maze, that is to set every element as 0 except the outside walls
   #then use a recursive algorithm to generate a new maze
   def redesign
-    r = Random.new
     x = @mat[0].length
     y = @mat.size
     (1..y-2).each do |i|
@@ -167,38 +173,45 @@ class Maze
       end
     end
 
-    divide(1,x-2,1,y-2,r)
+    divide(1,x-2,1,y-2)
   end
 
   #use recursion to generate a new maze
   #each iteration will create a new wall with one gap in it.
   #then the division is in the two sides of the wall just created
   #the resursion stops when the length or width of the current division is 1
-  def divide(x1,x2,y1,y2,r)
+  def divide(x1,x2,y1,y2)
     width = x2-x1+1
     length = y2-y1+1
     if length != 1 && width != 1
       if length > width    #add walls horizontally
-        div = setHorWall(x1,x2,y1,y2,r)
-        divide(x1,x2,y1,div-1,r)
-        divide(x1,x2,div+1,y2,r)
+        div = buildWall(x1,x2,y1,y2,"hor")
+        divide(x1,x2,y1,div-1)
+        divide(x1,x2,div+1,y2)
       else                #add walls vertically
-        div = setVerWall(x1,x2,y1,y2,r)
-        divide(x1,div-1,y1,y2,r)
-        divide(div+1,x2,y1,y2,r)
+        div = buildWall(y1,y2,x1,x2,"ver")
+        divide(x1,div-1,y1,y2)
+        divide(div+1,x2,y1,y2)
       end
     end
   end
 
-  #build horizontal walls
-  def setHorWall(x1,x2,y1,y2,r)
+  #build walls
+  def buildWall(x1,x2,y1,y2,dir)
+    r = Random.new
     div = r.rand(y1..y2)
     while div%2 == 1 do
       div = r.rand(y1..y2)
     end
 
-    (x1..x2).each do |i|
-      @mat[div][i] = "1"
+    if dir == "hor"
+      (x1..x2).each do |i|
+        @mat[div][i] = "1"
+      end
+    else
+      (x1..x2).each do |i|
+        @mat[i][div] = "1"
+      end
     end
 
     #set a gap between the walls
@@ -206,35 +219,14 @@ class Maze
     while gap%2 == 0 do
       gap = r.rand(x1..x2)
     end
-    @mat[div][gap] = "0"
+
+    if dir == "hor"
+      @mat[div][gap] = "0"
+    else
+      @mat[gap][div] = "0"
+    end
+
     div
   end
 
-  #build vertical walls
-  def setVerWall(x1,x2,y1,y2,r)
-    div = r.rand(x1..x2)
-    while div%2 == 1 do
-      div = r.rand(x1..x2)
-    end
-
-    (y1..y2).each do |i|
-      @mat[i][div] = "1"
-    end
-
-    #set a gap between walls
-    gap = r.rand(y1..y2)
-    while gap%2 == 0 do
-      gap = r.rand(y1..y2)
-    end
-
-    @mat[gap][div] = "0"
-    div
-  end
 end
-
-maze = Maze.new(4,4)
-maze.load("111111111100010001111010101100010101101110101100000101111011101100000101111111111")
-maze.display
-maze.trace(0,0,3,3)
-maze.redesign
-maze.display
